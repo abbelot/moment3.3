@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="sv">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://kit.fontawesome.com/7a274a6a8a.js" crossorigin="anonymous"></script>
+    <title>Kurser Webbutvecklingsprogrammet år 2</title>
+</head>
+
+<body>
+    <main>
+        <h1>Lästa kurser</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Kursid</th>
+                    <th>Kursnamn</th>
+                    <th>Kursplan</th>
+                    <th>Progression</th>
+                    <th>Termin</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Course content -->
+            </tbody>
+        </table>
+        <h2>Fyll i formuläret för att lägga till en kurs:</h2>
+        <form>
+            <label for="courseId">Kursid:</label>
+            <input id="courseId" type="text" name="courseId">
+
+            <label for="courseName">Kursnamn:</label>
+            <input id="courseName" type="text" name="courseName">
+
+            <label for="syllabus">Kursplan:</label>
+            <input id="syllabus" type="text" name="syllabus">
+
+            <label for="progression">Progression:</label>
+            <input id="progression" type="text" name="progression">
+
+            <label for="semester">Termin:</label>
+            <input id="semester" type="text" name="semester">
+
+            <button id="add-btn" type="submit">Lägg till kurs</button>
+        </form>
+        <footer>
+            <p>DT162G - Javascriptsbaserad webbutveckling</p>
+            <p>Moment 3.3 - Amanda Björk</p>
+        </footer>
+    </main>
+    <script>
+        const loadTable = async () => {
+            try {
+                // Make GET request to the server to get course data
+                const response = await fetch("http://localhost:3000/courses");
+                const courses = await response.json();
+
+                // Table body element
+                const tableBody = document.querySelector('tbody');
+                // Clear existing table data before loading new data
+                tableBody.innerHTML = '';
+
+                // Create a new table row for each course and add delete icon
+                courses.forEach(course => {
+                    const row = document.createElement("tr");
+                    ["courseId", "courseName", "syllabus", "progression", "semester"].forEach(key => {
+                        const cell = document.createElement("td");
+                        // Create link to syllabus
+                        if (key === "syllabus") {
+                            const anchor = document.createElement("a");
+                            anchor.setAttribute("href", course[key]);
+                            anchor.setAttribute("target", "_blank");
+                            anchor.textContent = "Länk till kursplan";
+                            cell.appendChild(anchor);
+                        } else {
+                            cell.textContent = course[key];
+                        }
+                        row.appendChild(cell);
+                    });
+
+                    // Append edit button to row
+                    const editCell = document.createElement("td");
+                    const editIcon = document.createElement("span");
+                    editIcon.classList.add("fa-solid", "fa-pen-to-square", "fa-lg", "edit-btn");
+                    editIcon.setAttribute("data-id", course._id);
+                    editCell.appendChild(editIcon);
+                    row.appendChild(editCell);
+
+                    // Append delete button to row
+                    const deleteCell = document.createElement("td");
+                    const deleteIcon = document.createElement("span");
+                    deleteIcon.classList.add("fa-solid", "fa-trash-can", "fa-lg", "delete-btn");
+                    deleteIcon.setAttribute("data-id", course._id);
+                    deleteCell.appendChild(deleteIcon);
+                    row.appendChild(deleteCell);
+
+                    tableBody.appendChild(row);
+                });
+
+
+                // Make DELETE request when clicking delete button
+                tableBody.addEventListener('click', async (e) => {
+                    // Check if target has delete-btn class
+                    if (e.target.classList.contains('delete-btn')) {
+                        // Get id from data-id
+                        const id = e.target.getAttribute('data-id');
+                        const response = await fetch(`http://localhost:3000/courses/${id}`, {
+                            method: 'DELETE',
+                            headers: {
+                                "Accept": "application/json",
+                                "Content-type": "application/json"
+                            }
+                        });
+
+                        // Remove element from parent element if response is ok
+                        if (response.ok) {
+                            e.target.parentElement.parentElement.remove();
+                        } else {
+                            console.error("Failed to delete course");
+                        }
+                        // Check if target has edit-btn class
+                    } else if (e.target.classList.contains('edit-btn')) {
+                        // Get id from data-id
+                        const id = e.target.getAttribute('data-id');
+                        // Find course with id in courses data
+                        const course = courses.find(c => c._id === id);
+                        // Fill form with course data if course exist
+                        if (course) {
+                            fillForm(course);
+                        }
+                    }
+                })
+            } catch (err) {
+                console.error("Failed to load courses ", err);
+            }
+        }
+
+        // Execute function when window finishes loading
+        window.onload = loadTable;
+
+        // POST form
+        document.querySelector('form').addEventListener('submit', async (e) => {
+            e.preventDefault(); // Prevent default form submit action
+            // Check if button has data-id
+            const updateId = e.target.querySelector('#add-btn').getAttribute('data-id');
+
+            // Gather form data
+            const formData = {
+                courseId: document.getElementById('courseId').value,
+                courseName: document.getElementById('courseName').value,
+                syllabus: document.getElementById('syllabus').value,
+                progression: document.getElementById('progression').value,
+                semester: document.getElementById('semester').value
+            };
+
+            let url = "http://localhost:3000/courses";
+            let httpMethod = 'POST';
+            if (updateId) {
+                url += `/${updateId}`;
+                httpMethod = 'PUT';
+            }
+
+            // Send POST/PUT request to server
+            try {
+                const response = await fetch(url, {
+                    method: httpMethod,
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    console.log(`Kurs ${updateId ? 'uppdaterad' : 'tillagd'}`);
+                    // Reset form fields
+                    document.getElementById('courseId').value = '';
+                    document.getElementById('courseName').value = '';
+                    document.getElementById('syllabus').value = '';
+                    document.getElementById('progression').value = '';
+                    document.getElementById('semester').value = '';
+
+                    document.getElementById('add-btn').removeAttribute('data-id');
+                    document.getElementById('add-btn').textContent = "Lägg till kurs";
+                    await loadTable();
+                } else {
+                    console.error(`Kunde inte ${updateId ? 'uppdatera' : 'lägga till'} kurs`);
+                }
+            } catch (err) {
+                console.error("Failed to send POST request: ", err);
+            }
+        });
+
+        function fillForm(course) {
+            // Fill form fields with course data
+            document.getElementById('courseId').value = course.courseId;
+            document.getElementById('courseName').value = course.courseName;
+            document.getElementById('syllabus').value = course.syllabus;
+            document.getElementById('progression').value = course.progression;
+            document.getElementById('semester').value = course.semester;
+            // Update button text
+            document.getElementById('add-btn').setAttribute('data-id', course._id);
+            document.getElementById('add-btn').textContent = "Uppdatera kurs";
+        }
+    </script>
+</body>
+
+</html>
